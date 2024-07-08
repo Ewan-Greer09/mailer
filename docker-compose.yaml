@@ -1,0 +1,67 @@
+services:
+  app:
+    container_name: app
+    hostname: app
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - 3000:3000
+    volumes:
+      - .:/app
+    networks:
+      - app
+    depends_on:
+      - mongo
+      - minio
+
+  # local service to mimic s3
+  minio:
+    image: "bitnami/minio:latest"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: miniominio
+      MINIO_DEFAULT_BUCKETS: mailer-emails,mailer-attatchments
+    networks:
+      - app
+    volumes:
+      - minio_data:/minio_data
+
+  mongo:
+    image: mongo
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=root
+      - MONGO_INITDB_ROOT_PASSWORD=example
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - app
+
+  db-client:
+    image: mongo-express
+    restart: always
+    ports:
+      - 8081:8081
+    environment:
+      - ME_CONFIG_MONGODB_ADMINUSERNAME=root
+      - ME_CONFIG_MONGODB_ADMINPASSWORD=example
+      - ME_CONFIG_MONGODB_URL=mongodb://root:example@mongo:27017/mailer
+    depends_on:
+      - mongo
+    networks:
+      - app
+
+volumes:
+  minio_data:
+    driver: local
+  mongo_data:
+
+networks:
+  app:
+    driver: bridge
