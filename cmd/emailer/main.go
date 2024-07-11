@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/joho/godotenv"
+	"github.com/labstack/echo-jwt"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 
@@ -29,7 +30,9 @@ func main() {
 	store := emailer.NewMongoStore(cfg.MongoURI)
 	defer store.Close(context.Background())
 
-	handler := emailer.NewHandler(emailer.NewEmailService(), store)
+	templater := emailer.NewEmailTemplater()
+
+	handler := emailer.NewHandler(emailer.NewEmailService(), store, templater)
 	MountRoutes(e, handler, *cfg)
 
 	err := e.Start(cfg.Address)
@@ -45,7 +48,7 @@ func MountRoutes(e *echo.Echo, h *emailer.Handler, cfg AppConfig) {
 		middleware.RequestID(),
 		middleware.Logger(),
 		middleware.Recover(),
-		// echojwt.JWT([]byte(cfg.JWTSecretKey)),
+		echojwt.JWT([]byte(cfg.JWTSecretKey)),
 	)
 
 	api := e.Group("/api")
@@ -60,8 +63,9 @@ func loadConfig() *AppConfig {
 	}
 
 	return &AppConfig{
-		Address:     os.Getenv("ADDRESS"),
-		S3AccessKey: os.Getenv("S3_ACCESS_KEY"),
-		MongoURI:    os.Getenv("MONGO_URI"),
+		Address:      os.Getenv("ADDRESS"),
+		S3AccessKey:  os.Getenv("S3_ACCESS_KEY"),
+		MongoURI:     os.Getenv("MONGO_URI"),
+		JWTSecretKey: os.Getenv("JWT_SECRET_KEY"),
 	}
 }

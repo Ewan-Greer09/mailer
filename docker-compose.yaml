@@ -32,12 +32,14 @@ services:
       - minio_data:/minio_data
 
   mongo:
-    image: mongo
+    image: mongo:latest
+    restart: always
+    container_name: mongo
     ports:
       - "27017:27017"
     environment:
-      - MONGO_INITDB_ROOT_USERNAME=root
-      - MONGO_INITDB_ROOT_PASSWORD=example
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: example
     volumes:
       - mongo_data:/data/db
     networks:
