@@ -12,7 +12,7 @@ import (
 
 type Storer interface {
 	SaveEmail(EmailRecord) (string, error)
-
+	GetEmail(uid string) (EmailRecord, error)
 	Close(context.Context)
 }
 
@@ -37,7 +37,7 @@ func NewMongoStore(uri string) *MongoStore {
 }
 
 type EmailRecord struct {
-	CommType string `bson:"communication"`
+	CommType string `bson:"email_type"`
 
 	ViewURL string `bson:"view_url"`
 }
@@ -57,6 +57,25 @@ func (ms MongoStore) SaveEmail(doc EmailRecord) (string, error) {
 	}
 
 	return uuid, nil
+}
+
+func (ms MongoStore) GetEmail(uid string) (EmailRecord, error) {
+	coll := ms.client.Database("mailer").Collection("emails")
+
+	res := coll.FindOne(context.TODO(), bson.M{
+		"uuid": uid,
+	})
+	if res.Err() != nil {
+		return EmailRecord{}, res.Err()
+	}
+
+	var record EmailRecord
+	err := res.Decode(&record)
+	if err != nil {
+		return EmailRecord{}, err
+	}
+
+	return record, nil
 }
 
 func (ms MongoStore) Close(ctx context.Context) {

@@ -53,7 +53,7 @@ func MountRoutes(e *echo.Echo, h *emailer.Handler, cfg AppConfig) {
 
 	api := e.Group("/api")
 	api.POST("/send/:communication_type", h.Send)
-	// api.GET("/:communication_uuid", h.)
+	api.GET("/:communication_uuid", h.Retrieve)
 }
 
 func loadConfig() *AppConfig {

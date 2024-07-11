@@ -1,6 +1,7 @@
 package emailer
 
 import (
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
@@ -74,6 +75,28 @@ func NewEmailTemplater() *EmailTemplater {
 func (EmailTemplater) Template(commType string, datafields map[string]any) ([]byte, error) {
 	slog.Info("EmailService", "method", "Send", "Content", fmt.Sprint(datafields))
 	return []byte{}, nil
+}
+
+func (h Handler) Retrieve(c echo.Context) error {
+	commID := c.Param("communication_uuid")
+
+	h.logger.Info("retrieve", "id", commID)
+
+	email, err := h.store.GetEmail(commID)
+	if err != nil {
+		h.logger.Warn("retrieve", "err", err)
+		return err
+	}
+
+	b, err := json.Marshal(email)
+	if err != nil {
+		h.logger.Warn("retrieve", "err", err)
+		return err
+	}
+
+	c.Response().WriteHeader(200)
+	c.Response().Write(b)
+	return nil
 }
 
 func (h Handler) Send(c echo.Context) error {
