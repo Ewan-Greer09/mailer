@@ -19,6 +19,7 @@ services:
   # local service to mimic s3
   minio:
     image: "bitnami/minio:latest"
+    container_name: minio
     ports:
       - "9000:9000"
       - "9001:9001"
@@ -29,15 +30,17 @@ services:
     networks:
       - app
     volumes:
-      - minio_data:/minio_data
+      - minio_data:/bitnami/minio/data
 
   mongo:
-    image: mongo
+    image: mongo:latest
+    restart: always
+    container_name: mongo
     ports:
       - "27017:27017"
     environment:
-      - MONGO_INITDB_ROOT_USERNAME=root
-      - MONGO_INITDB_ROOT_PASSWORD=example
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: example
     volumes:
       - mongo_data:/data/db
     networks:

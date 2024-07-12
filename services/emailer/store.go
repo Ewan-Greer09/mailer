@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 
+	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -11,7 +12,7 @@ import (
 
 type Storer interface {
 	SaveEmail(EmailRecord) (string, error)
-
+	GetEmail(uid string) (EmailRecord, error)
 	Close(context.Context)
 }
 
@@ -36,25 +37,45 @@ func NewMongoStore(uri string) *MongoStore {
 }
 
 type EmailRecord struct {
-	Subject string `bson:"subject"`
+	CommType string `bson:"email_type"`
 
 	ViewURL string `bson:"view_url"`
 }
 
 func (ms MongoStore) SaveEmail(doc EmailRecord) (string, error) {
 	coll := ms.client.Database("mailer").Collection("emails")
-
+	uuid := uuid.NewString()
 	insert := bson.M{
-		"subject":  doc.Subject,
-		"view_url": doc.ViewURL,
+		"email_type": doc.CommType,
+		"uuid":       uuid,
+		"view_url":   doc.ViewURL,
 	}
 
-	res, err := coll.InsertOne(context.Background(), insert)
+	_, err := coll.InsertOne(context.Background(), insert)
 	if err != nil {
 		return "", err
 	}
 
-	return res.InsertedID.(string), nil
+	return uuid, nil
+}
+
+func (ms MongoStore) GetEmail(uid string) (EmailRecord, error) {
+	coll := ms.client.Database("mailer").Collection("emails")
+
+	res := coll.FindOne(context.TODO(), bson.M{
+		"uuid": uid,
+	})
+	if res.Err() != nil {
+		return EmailRecord{}, res.Err()
+	}
+
+	var record EmailRecord
+	err := res.Decode(&record)
+	if err != nil {
+		return EmailRecord{}, err
+	}
+
+	return record, nil
 }
 
 func (ms MongoStore) Close(ctx context.Context) {

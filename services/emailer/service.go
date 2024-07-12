@@ -1,15 +1,17 @@
 package emailer
 
 import (
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
 
 type Sender interface {
-	Send(emailType string) error
+	Send(any) error
 }
 
 type EmailService struct{}
@@ -18,19 +20,26 @@ func NewEmailService() *EmailService {
 	return &EmailService{}
 }
 
-func (EmailService) Send(emailType string) error { return nil }
-
-type Handler struct {
-	sender Sender
-	logger slog.Logger
-	store  Storer
+func (es EmailService) Send(content any) error {
+	slog.Info("EmailService", "method", "Send", "Content", fmt.Sprint(content))
+	return nil
 }
 
-func NewHandler(s Sender, storer Storer) *Handler {
+type Handler struct {
+	sender    Sender
+	logger    slog.Logger
+	store     Storer
+	templater Templater
+	uploader  Uploader
+}
+
+func NewHandler(s Sender, storer Storer, templater Templater, uploader Uploader) *Handler {
 	return &Handler{
-		sender: s,
-		logger: *slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{})),
-		store:  storer,
+		sender:    s,
+		logger:    *slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{})),
+		store:     storer,
+		templater: templater,
+		uploader:  uploader,
 	}
 }
 
@@ -42,13 +51,40 @@ const (
 	push  channel = "push"
 )
 
+type Recipient struct {
+	Email     string `json:"email"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+}
+
 type SendEmailRequest struct {
-	Channel  channel           `json:"communication_channel"`
-	Subject  string            `json:"subject,omitempty"`
-	To       string            `json:"to"`
-	From     string            `json:"from"`
-	ReplyTo  string            `json:"reply_to"`
-	MetaData map[string]string `json:"metadata"`
+	Channel           channel           `json:"communication_channel"`
+	ReplyTo           string            `json:"reply_to"`
+	Recipient         Recipient         `json:"recipient"`
+	MetaData          map[string]string `json:"metadata"`           // data not needed for success, but useful for logging/observability
+	MessageDatafields map[string]any    `json:"message_datafields"` // datafields specific to a communication_type
+}
+
+func (h Handler) Retrieve(c echo.Context) error {
+	commID := c.Param("communication_uuid")
+
+	h.logger.Info("retrieve", "id", commID)
+
+	email, err := h.store.GetEmail(commID)
+	if err != nil {
+		h.logger.Warn("retrieve", "err", err)
+		return err
+	}
+
+	b, err := json.Marshal(email)
+	if err != nil {
+		h.logger.Warn("retrieve", "err", err)
+		return err
+	}
+
+	c.Response().WriteHeader(200)
+	_, _ = c.Response().Write(b)
+	return nil
 }
 
 func (h Handler) Send(c echo.Context) error {
@@ -57,22 +93,44 @@ func (h Handler) Send(c echo.Context) error {
 
 	err := c.Bind(&req)
 	if err != nil {
-		h.logger.Warn("Send Email", "err", err)
+		h.logger.Warn("send email", "err", err)
 		return err
 	}
 
-	err = h.sender.Send(commType)
+	b, err := h.templater.Template(commType, req.MessageDatafields)
 	if err != nil {
 		h.logger.Warn("send email", "err", err)
 		return err
 	}
 
+	uid := uuid.NewString()
+	var location = "failed"
+	var doneCh = make(chan struct{})
+
+	go func() {
+		url, err := h.uploader.Upload(b, fmt.Sprintf("%s-%s.html", commType, uid))
+		if err != nil {
+			h.logger.Warn("send: upload", "err", err)
+			doneCh <- struct{}{}
+		}
+		location = url
+		doneCh <- struct{}{}
+	}()
+
+	err = h.sender.Send(b)
+	if err != nil {
+		h.logger.Warn("send email", "err", err)
+		return err
+	}
+
+	<-doneCh
+
 	var id string
 	switch req.Channel {
 	case email:
 		id, err = h.store.SaveEmail(EmailRecord{
-			Subject: req.Subject,
-			ViewURL: "www.google.com",
+			CommType: commType,
+			ViewURL:  location,
 		})
 		if err != nil {
 			h.logger.Warn("save email", "err", err)
@@ -83,7 +141,7 @@ func (h Handler) Send(c echo.Context) error {
 		return fmt.Errorf("%s is not a recognised channel", req.Channel)
 	}
 
-	c.Response().Write([]byte(fmt.Sprintf("id: %s", id)))
+	_, _ = c.Response().Write([]byte(fmt.Sprintf("id: %s", id)))
 	c.Response().Status = 200
 	return nil
 }
