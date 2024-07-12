@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
 
@@ -29,14 +30,16 @@ type Handler struct {
 	logger    slog.Logger
 	store     Storer
 	templater Templater
+	uploader  Uploader
 }
 
-func NewHandler(s Sender, storer Storer, templater Templater) *Handler {
+func NewHandler(s Sender, storer Storer, templater Templater, uploader Uploader) *Handler {
 	return &Handler{
 		sender:    s,
 		logger:    *slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{})),
 		store:     storer,
 		templater: templater,
+		uploader:  uploader,
 	}
 }
 
@@ -62,21 +65,6 @@ type SendEmailRequest struct {
 	MessageDatafields map[string]any    `json:"message_datafields"` // datafields specific to a communication_type
 }
 
-type Templater interface {
-	Template(string, map[string]any) ([]byte, error)
-}
-
-type EmailTemplater struct{}
-
-func NewEmailTemplater() *EmailTemplater {
-	return &EmailTemplater{}
-}
-
-func (EmailTemplater) Template(commType string, datafields map[string]any) ([]byte, error) {
-	slog.Info("EmailService", "method", "Send", "Content", fmt.Sprint(datafields))
-	return []byte{}, nil
-}
-
 func (h Handler) Retrieve(c echo.Context) error {
 	commID := c.Param("communication_uuid")
 
@@ -95,7 +83,7 @@ func (h Handler) Retrieve(c echo.Context) error {
 	}
 
 	c.Response().WriteHeader(200)
-	c.Response().Write(b)
+	_, _ = c.Response().Write(b)
 	return nil
 }
 
@@ -115,18 +103,34 @@ func (h Handler) Send(c echo.Context) error {
 		return err
 	}
 
+	uid := uuid.NewString()
+	var location = "failed"
+	var doneCh = make(chan struct{})
+
+	go func() {
+		url, err := h.uploader.Upload(b, fmt.Sprintf("%s-%s.html", commType, uid))
+		if err != nil {
+			h.logger.Warn("send: upload", "err", err)
+			doneCh <- struct{}{}
+		}
+		location = url
+		doneCh <- struct{}{}
+	}()
+
 	err = h.sender.Send(b)
 	if err != nil {
 		h.logger.Warn("send email", "err", err)
 		return err
 	}
 
+	<-doneCh
+
 	var id string
 	switch req.Channel {
 	case email:
 		id, err = h.store.SaveEmail(EmailRecord{
 			CommType: commType,
-			ViewURL:  "www.google.com",
+			ViewURL:  location,
 		})
 		if err != nil {
 			h.logger.Warn("save email", "err", err)
@@ -137,7 +141,7 @@ func (h Handler) Send(c echo.Context) error {
 		return fmt.Errorf("%s is not a recognised channel", req.Channel)
 	}
 
-	c.Response().Write([]byte(fmt.Sprintf("id: %s", id)))
+	_, _ = c.Response().Write([]byte(fmt.Sprintf("id: %s", id)))
 	c.Response().Status = 200
 	return nil
 }

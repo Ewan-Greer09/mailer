@@ -17,6 +17,7 @@ import (
 type AppConfig struct {
 	Address      string `json:"ADDRESS"`
 	S3AccessKey  string `json:"S3_ACCESS_KEY"`
+	S3SecretKey  string `json:"S3_SECRET_KEY"`
 	JWTSecretKey string `json:"JWT_SECRET_KEY"`
 	MongoURI     string `json:"MONGO_URI"`
 }
@@ -32,7 +33,9 @@ func main() {
 
 	templater := emailer.NewEmailTemplater()
 
-	handler := emailer.NewHandler(emailer.NewEmailService(), store, templater)
+	uploader := emailer.NewS3Uploader("http://minio:9000", "http://localhost:9000")
+
+	handler := emailer.NewHandler(emailer.NewEmailService(), store, templater, uploader)
 	MountRoutes(e, handler, *cfg)
 
 	err := e.Start(cfg.Address)
