@@ -46,7 +46,6 @@ func NewS3Config(endpoint string) (aws.Config, error) {
 			return aws.Credentials{
 				AccessKeyID:     "minio",
 				SecretAccessKey: "miniominio",
-				SessionToken:    "",
 			}, nil
 		})))
 	}
