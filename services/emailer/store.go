@@ -44,10 +44,10 @@ type EmailRecord struct {
 
 func (ms MongoStore) SaveEmail(doc EmailRecord) (string, error) {
 	coll := ms.client.Database("mailer").Collection("emails")
-	uuid := uuid.NewString()
+	uid := uuid.NewString()
 	insert := bson.M{
 		"email_type": doc.CommType,
-		"uuid":       uuid,
+		"uuid":       uid,
 		"view_url":   doc.ViewURL,
 	}
 
@@ -56,7 +56,7 @@ func (ms MongoStore) SaveEmail(doc EmailRecord) (string, error) {
 		return "", err
 	}
 
-	return uuid, nil
+	return uid, nil
 }
 
 func (ms MongoStore) GetEmail(uid string) (EmailRecord, error) {
