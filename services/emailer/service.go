@@ -26,13 +26,7 @@ var port = "587"
 
 func (es EmailService) Send(content []byte, to string, subject string) error {
 	auth := smtp.PlainAuth("", es.smtpEmail, es.smtpPassword, host)
-
-	err := smtp.SendMail(host+":"+port, auth, es.smtpEmail, []string{to}, getMessageString(es.smtpEmail, to, subject, string(content)))
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return smtp.SendMail(host+":"+port, auth, es.smtpEmail, []string{to}, getMessageString(es.smtpEmail, to, subject, string(content)))
 }
 
 func getMessageString(from, to, subject, body string) []byte {
