@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/joho/godotenv"
 	echojwt "github.com/labstack/echo-jwt"
 	"github.com/labstack/echo/v4"
@@ -16,21 +17,26 @@ import (
 )
 
 type AppConfig struct {
-	Address     string `json:"ADDRESS"`
-	S3AccessKey string `json:"S3_ACCESS_KEY"`
-	S3SecretKey string `json:"S3_SECRET_KEY"`
-	S3ViewURL   string `json:"S3_VIEW_URL"`
-	S3HostURL   string `json:"S3_HOST_URL"`
+	Address     string `json:"ADDRESS" validate:"required"`
+	S3AccessKey string `json:"S3_ACCESS_KEY" validate:"required"`
+	S3SecretKey string `json:"S3_SECRET_KEY" validate:"required"`
+	S3ViewURL   string `json:"S3_VIEW_URL" validate:"required"`
+	S3HostURL   string `json:"S3_HOST_URL" validate:"required"`
 
-	JWTSecretKey string `json:"JWT_SECRET_KEY"`
-	MongoURI     string `json:"MONGO_URI"`
+	JWTSecretKey string `json:"JWT_SECRET_KEY" validate:"required"`
+	MongoURI     string `json:"MONGO_URI" validate:"required"`
 
-	SmtpEmail    string `json:"SMTP_EMAIL"`
-	SmtpPassword string `json:"SMTP_PASSWORD"`
+	SmtpEmail    string `json:"SMTP_EMAIL" validate:"required"`
+	SmtpPassword string `json:"SMTP_PASSWORD" validate:"required"`
 }
 
 func main() {
 	cfg := loadConfig()
+
+	err := cfg.Validate()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	e := echo.New()
 	e.HideBanner = true
@@ -45,7 +51,7 @@ func main() {
 	handler := emailer.NewHandler(emailer.NewEmailService(cfg.SmtpEmail, cfg.SmtpPassword), store, templater, uploader)
 	MountRoutes(e, handler, *cfg)
 
-	err := e.Start(cfg.Address)
+	err = e.Start(cfg.Address)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -75,6 +81,7 @@ func loadConfig() *AppConfig {
 	return &AppConfig{
 		Address:      os.Getenv("ADDRESS"),
 		S3AccessKey:  os.Getenv("S3_ACCESS_KEY"),
+		S3SecretKey:  os.Getenv("S3_SECRET_KEY"),
 		MongoURI:     os.Getenv("MONGO_URI"),
 		JWTSecretKey: os.Getenv("JWT_SECRET_KEY"),
 		S3ViewURL:    os.Getenv("S3_VIEW_URL"),
@@ -82,4 +89,8 @@ func loadConfig() *AppConfig {
 		SmtpEmail:    os.Getenv("SMTP_EMAIL"),
 		SmtpPassword: os.Getenv("SMTP_PASSWORD"),
 	}
+}
+
+func (cfg *AppConfig) Validate() error {
+	return validator.New().Struct(cfg)
 }
