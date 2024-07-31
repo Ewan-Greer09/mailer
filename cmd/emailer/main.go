@@ -13,6 +13,7 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 
 	"github.com/Ewan-Greer09/mailer/services/emailer"
+	"github.com/Ewan-Greer09/mailer/services/frontend"
 	_ "github.com/a-h/templ"
 )
 
@@ -49,7 +50,10 @@ func main() {
 	uploader := emailer.NewS3Uploader(cfg.S3HostURL, cfg.S3ViewURL)
 
 	handler := emailer.NewHandler(emailer.NewEmailService(cfg.SmtpEmail, cfg.SmtpPassword), store, templater, uploader)
-	MountRoutes(e, handler, *cfg)
+
+	frontendHandler := frontend.New()
+
+	MountRoutes(e, handler, frontendHandler, *cfg)
 
 	err = e.Start(cfg.Address)
 	if err != nil {
@@ -59,17 +63,19 @@ func main() {
 	slog.Info("server stopped", "err", err)
 }
 
-func MountRoutes(e *echo.Echo, h *emailer.Handler, cfg AppConfig) {
+func MountRoutes(e *echo.Echo, h *emailer.Handler, fh *frontend.Handler, cfg AppConfig) {
 	e.Use(
 		middleware.RequestID(),
 		middleware.Logger(),
 		middleware.Recover(),
-		echojwt.JWT([]byte(cfg.JWTSecretKey)),
 	)
 
-	api := e.Group("/api")
+	api := e.Group("/api", echojwt.JWT([]byte(cfg.JWTSecretKey)))
 	api.POST("/send/:communication_type", h.Send)
 	api.GET("/:communication_uuid", h.Retrieve)
+
+	frontend := e.Group("")
+	frontend.GET("/", fh.Root)
 }
 
 func loadConfig() *AppConfig {

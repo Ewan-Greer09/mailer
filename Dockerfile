@@ -1,20 +1,34 @@
-# Use the official Golang image as the base image
-FROM golang:1.22
+# Stage 1: Build the Go binary
+FROM golang:1.22-alpine as builder
 
-RUN go install github.com/air-verse/air@latest
-RUN go install github.com/a-h/templ/cmd/templ@latest
-
-# Set the working directory inside the container
+# Set the Current Working Directory inside the container
 WORKDIR /app
 
-# Copy the Go module files
+# Cache go modules
 COPY go.mod go.sum ./
-
-# Download the Go module dependencies
 RUN go mod download
 
 # Copy the source code into the container
 COPY . .
 
-# Set the entrypoint command to run the application with Air
-ENTRYPOINT ["air", "-c", ".air.toml"]
+# Build the Go app (assuming 'emailer' is the entry point)
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /emailer ./cmd/emailer
+
+# Stage 2: Create a small image with the built binary
+FROM alpine:3.18
+
+# Set up certificates (if your app needs to make HTTPS requests)
+RUN apk --no-cache add ca-certificates
+
+# Set the Current Working Directory inside the container
+WORKDIR /root/
+
+# Copy the binary from the builder stage
+COPY --from=builder /emailer .
+
+# Expose the port the app runs on (if needed)
+EXPOSE 8080
+
+# Command to run the binary
+CMD ["./emailer"]
+
