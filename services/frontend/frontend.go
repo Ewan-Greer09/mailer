@@ -26,6 +26,9 @@ func New() *Handler {
 }
 
 func (h *Handler) Root(c echo.Context) error {
-	h.logger.InfoContext(c.Request().Context(), "called 'Root()'")
-	return root.Page().Render(c.Request().Context(), c.Response())
+	return root.Page(nil).Render(c.Request().Context(), c.Response())
+}
+
+func (h *Handler) Recpipent(c echo.Context) error {
+	return root.SingleEmailForm().Render(c.Request().Context(), c.Response())
 }

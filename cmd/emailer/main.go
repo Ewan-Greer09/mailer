@@ -76,6 +76,7 @@ func MountRoutes(e *echo.Echo, h *emailer.Handler, fh *frontend.Handler, cfg App
 
 	frontend := e.Group("")
 	frontend.GET("/", fh.Root)
+	frontend.POST("/recipient", fh.Recpipent)
 }
 
 func loadConfig() *AppConfig {

@@ -1,22 +1,55 @@
 package root
 
-templ Page() {
+import "fmt"
+
+templ Page(emails []any) {
 	<!DOCTYPE html>
 	<html lang="en">
 		<head>
 			<meta charset="UTF-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 			<title>Home</title>
+			<script src="https://unpkg.com/htmx.org@2.0.1" integrity="sha384-QWGpdj554B4ETpJJC9z+ZHJcA/i59TyjxEPXiiUgN2WmTyV5OEZWCD6gQhgkdpB/" crossorigin="anonymous"></script>
+			<script src="https://cdn.tailwindcss.com"></script>
 		</head>
 		<body>
 			<header></header>
-			<main>
-				<h1>Email Sending Service</h1>
-				<p>Login to get started</p>
+			<main class="flex items-center justify-center">
+				@SingleEmailForm()
+				<form id="batch-upload" hx-post="/file-upload" class="bg-red-50">
+					<input type="file" name="csv-file" id="csv-input"/>
+					<select name="email-type" id="email-type-select" form="batch-upload">
+						<option value="chat-invite">none</option>
+						<option value="chat-invite">chat invite</option>
+						<option value="chat-invite">confirm email</option>
+						<option value="chat-invite">welcome</option>
+					</select>
+					<button type="submit">Upload CSV</button>
+				</form>
+				<div id="preview"></div>
+				// use HTMX to update this list
+				<div id="email-list">
+					for _, email := range emails {
+						<p>{ fmt.Sprint(email) }</p>
+					}
+				</div>
 			</main>
 			<footer>
 				Ewan Greer
 			</footer>
 		</body>
 	</html>
+}
+
+templ SingleEmailForm() {
+	<form id="single-email" hx-post="/recipient" class="bg-green-50">
+		<input type="email" name="email" id="email-input" placeholder="email"/>
+		<select name="email-type" id="email-type-select" form="single-email">
+			<option value="chat-invite">none</option>
+			<option value="chat-invite">chat invite</option>
+			<option value="chat-invite">confirm email</option>
+			<option value="chat-invite">welcome</option>
+		</select>
+		<button type="submit">Add Email</button>
+	</form>
 }
