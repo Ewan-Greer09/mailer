@@ -68,15 +68,20 @@ func MountRoutes(e *echo.Echo, h *emailer.Handler, fh *frontend.Handler, cfg App
 		middleware.RequestID(),
 		middleware.Logger(),
 		middleware.Recover(),
+		middleware.CORS(),
 	)
+
+	e.GET("/", fh.Root)
+	e.POST("/recipient", fh.Recipient)
+	e.GET("/recipient/list", fh.RecipientList)
+	e.DELETE("/recipient/:email", fh.DeleteRecipient)
+
+	fh.Static(e)
 
 	api := e.Group("/api", echojwt.JWT([]byte(cfg.JWTSecretKey)))
 	api.POST("/send/:communication_type", h.Send)
 	api.GET("/:communication_uuid", h.Retrieve)
 
-	frontend := e.Group("")
-	frontend.GET("/", fh.Root)
-	frontend.POST("/recipient", fh.Recpipent)
 }
 
 func loadConfig() *AppConfig {

@@ -2,7 +2,7 @@ package root
 
 import "fmt"
 
-templ Page(emails []any) {
+templ Page(emails []string) {
 	<!DOCTYPE html>
 	<html lang="en">
 		<head>
@@ -10,31 +10,28 @@ templ Page(emails []any) {
 			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 			<title>Home</title>
 			<script src="https://unpkg.com/htmx.org@2.0.1" integrity="sha384-QWGpdj554B4ETpJJC9z+ZHJcA/i59TyjxEPXiiUgN2WmTyV5OEZWCD6gQhgkdpB/" crossorigin="anonymous"></script>
-			<script src="https://cdn.tailwindcss.com"></script>
+			<link rel="stylesheet" href="/public/css/output.css"/>
+			<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0"/>
 		</head>
-		<body>
-			<header></header>
-			<main class="flex items-center justify-center">
-				@SingleEmailForm()
-				<form id="batch-upload" hx-post="/file-upload" class="bg-red-50">
-					<input type="file" name="csv-file" id="csv-input"/>
-					<select name="email-type" id="email-type-select" form="batch-upload">
-						<option value="chat-invite">none</option>
-						<option value="chat-invite">chat invite</option>
-						<option value="chat-invite">confirm email</option>
-						<option value="chat-invite">welcome</option>
-					</select>
-					<button type="submit">Upload CSV</button>
-				</form>
-				<div id="preview"></div>
-				// use HTMX to update this list
-				<div id="email-list">
-					for _, email := range emails {
-						<p>{ fmt.Sprint(email) }</p>
-					}
+		<body class="font-mono">
+			<header class="prose text-center p-10">
+				<h1 class="m-auto">Send Emails</h1>
+			</header>
+			<main class="flex grid-cols-2 gap-1 items-center justify-center">
+				<div class="container grid grid-cols-2 justify-center items-center">
+					<div class="flex justify-center items-center">
+						@SingleEmailForm()
+					</div>
+					<div class="flex justify-center items-center">
+						@BatchEmailForm()
+					</div>
 				</div>
+				<div id="preview"></div>
 			</main>
-			<footer>
+			<div>
+				@EmailList(emails)
+			</div>
+			<footer class="text-center">
 				Ewan Greer
 			</footer>
 		</body>
@@ -42,14 +39,62 @@ templ Page(emails []any) {
 }
 
 templ SingleEmailForm() {
-	<form id="single-email" hx-post="/recipient" class="bg-green-50">
-		<input type="email" name="email" id="email-input" placeholder="email"/>
-		<select name="email-type" id="email-type-select" form="single-email">
-			<option value="chat-invite">none</option>
-			<option value="chat-invite">chat invite</option>
-			<option value="chat-invite">confirm email</option>
-			<option value="chat-invite">welcome</option>
-		</select>
-		<button type="submit">Add Email</button>
-	</form>
+	<div id="single-form" class="prose text-center justify-center">
+		<h2>Single Email</h2>
+		<form class="prose flex flex-col m-4 card w-full max-w-xs" id="single-email" hx-post="/recipient" hx-target="#single-form" hx-swap="outerHTML">
+			<input class="input input-bordered m-4" type="email" name="email" id="email-input" placeholder="email"/>
+			<select class="select select-bordered m-4" name="email-type" id="email-type-select" form="single-email">
+				<option class="dropdown-content" value="">none</option>
+				<option class="dropdown-content" value="chat-invite">chat invite</option>
+				<option class="dropdown-content" value="confirm-email">confirm email</option>
+				<option class="dropdown-content" value="welcome">welcome</option>
+			</select>
+			<button class="btn btn-primary m-4" type="submit">Add Email</button>
+		</form>
+	</div>
+}
+
+templ BatchEmailForm() {
+	<div class="prose text-center justify-center">
+		<h2>Batch Upload</h2>
+		<form class="flex flex-col m-4 card" id="batch-upload" hx-post="/file-upload">
+			<input type="file" class="file-input file-input-bordered file-input-primary w-full max-w-xs m-4"/>
+			<select class="select select-bordered m-4" name="email-type" id="email-type-select" form="batch-upload">
+				<option class="dropdown-content" value="">none</option>
+				<option class="dropdown-content" value="chat-invite">chat invite</option>
+				<option class="dropdown-content" value="confirm-email">confirm email</option>
+				<option class="dropdown-content" value="welcome">welcome</option>
+			</select>
+			<button class="btn btn-primary m-4" type="submit">Upload CSV</button>
+		</form>
+	</div>
+}
+
+templ Email(e string) {
+	<span class="border border-secondary rounded-md h-fit p-2 m-2">
+		{ fmt.Sprint(e) }
+		<button type="button" hx-delete={ fmt.Sprintf("/recipient/%s", e) } hx-target="#email-list" hx-swap="outerHTML">
+			<span class="material-symbols-outlined text-error align-middle">
+				close
+			</span>
+		</button>
+	</span>
+}
+
+templ EmailList(emails []string) {
+	<div class="flex" id="email-list">
+		<div class="flex felx-row">
+			<h1 class="p-4">Recipients</h1>
+			<button type="button" hx-get="/recipient/list" hx-target="#email-list" hx-swap="outerHTML" style="vertical-align: text-bottom;">
+				<span class="material-symbols-outlined">
+					sync
+				</span>
+			</button>
+		</div>
+		<div class="container flex justify-center">
+			for _, email := range emails {
+				@Email(email)
+			}
+		</div>
+	</div>
 }

@@ -3,3 +3,4 @@
 /bin
 .idea/
 *_templ.go
+node_modules
