@@ -2,7 +2,6 @@ package frontend
 
 import (
 	"embed"
-	"log"
 	"log/slog"
 	"os"
 
@@ -16,6 +15,8 @@ var publicFS embed.FS
 type Handler struct {
 	logger *slog.Logger
 }
+
+var Recipients = []string{"example@example.com"} // todo: this should be a database (sqlite or mongo)
 
 func New() *Handler {
 	return &Handler{
@@ -34,47 +35,27 @@ func (*Handler) Static(e *echo.Echo) {
 	e.StaticFS("/public", echo.MustSubFS(publicFS, "public/"))
 }
 
-func (h *Handler) Root(c echo.Context) error {
-	return root.Page(reciepients).Render(c.Request().Context(), c.Response())
+func (h *Handler) HandleRoot(c echo.Context) error {
+	return root.Page(Recipients).Render(c.Request().Context(), c.Response())
 }
 
-func (h *Handler) Recipient(c echo.Context) error {
+func (h *Handler) HandleAddRecipient(c echo.Context) error {
 	email := c.FormValue("email")
-	reciepients = append(reciepients, email)
-	return root.SingleEmailForm().Render(c.Request().Context(), c.Response())
+	Recipients = append(Recipients, email)
+	return root.Email(email).Render(c.Request().Context(), c.Response())
 }
 
-var reciepients = []string{"example@example.com"}
-
-func (h *Handler) RecipientList(c echo.Context) error {
-	return root.EmailList(reciepients).Render(c.Request().Context(), c.Response())
+func (h *Handler) HandleRecipientList(c echo.Context) error {
+	return root.EmailList(Recipients).Render(c.Request().Context(), c.Response())
 }
 
-func (h *Handler) DeleteRecipient(c echo.Context) error {
+func (h *Handler) HandleDeleteRecipient(c echo.Context) error {
 	email := c.Param("email")
-	for i, v := range reciepients {
+	for i, v := range Recipients {
 		if v == email {
-			reciepients = append(reciepients[:i], reciepients[i+1:]...)
+			Recipients = append(Recipients[:i], Recipients[i+1:]...)
 		}
 	}
-
-	log.Println("-----------------------------")
-	log.Println("Email: ", email)
-	log.Println("Recipients: ", reciepients)
-	log.Println("-----------------------------")
-
-	return root.EmailList(reciepients).Render(c.Request().Context(), c.Response())
-}
-
-func (h *Handler) BatchSend(c echo.Context) error {
-
-	/*
-		go func(){
-			h.Emailer.BatchSend(contentType, recipients)
-		}()
-
-		return root.EmailSendingConfirm().Render(c.Request().Context(), c.Response())
-	*/
 
 	return nil
 }

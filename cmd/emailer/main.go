@@ -8,7 +8,6 @@ import (
 
 	"github.com/go-playground/validator/v10"
 	"github.com/joho/godotenv"
-	echojwt "github.com/labstack/echo-jwt"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 
@@ -71,17 +70,17 @@ func MountRoutes(e *echo.Echo, h *emailer.Handler, fh *frontend.Handler, cfg App
 		middleware.CORS(),
 	)
 
-	e.GET("/", fh.Root)
-	e.POST("/recipient", fh.Recipient)
-	e.GET("/recipient/list", fh.RecipientList)
-	e.DELETE("/recipient/:email", fh.DeleteRecipient)
+	e.GET("/", fh.HandleRoot)
+	e.POST("/recipient", fh.HandleAddRecipient)
+	e.GET("/recipient/list", fh.HandleRecipientList)
+	e.DELETE("/recipient/:email", fh.HandleDeleteRecipient)
 
 	fh.Static(e)
 
-	api := e.Group("/api", echojwt.JWT([]byte(cfg.JWTSecretKey)))
+	api := e.Group("/api") //echojwt.JWT([]byte(cfg.JWTSecretKey))
 	api.POST("/send/:communication_type", h.Send)
 	api.GET("/:communication_uuid", h.Retrieve)
-
+	api.POST("/send/batch", h.SendBatch)
 }
 
 func loadConfig() *AppConfig {

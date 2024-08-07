@@ -2,14 +2,15 @@ package emailer
 
 import (
 	"fmt"
+	"log/slog"
+	"os"
+
+	"github.com/Ewan-Greer09/mailer/services/frontend"
+	"github.com/Ewan-Greer09/mailer/services/frontend/views/root"
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"golang.org/x/sync/errgroup"
-	"log"
-	"log/slog"
-	"os"
-	"time"
 )
 
 type channel string
@@ -38,6 +39,12 @@ type SendEmailRequest struct {
 type ApiResponse struct {
 	Msg   string `json:"msg"`
 	Error string `json:"error"`
+}
+
+var batchEmailSubjects = map[string]string{
+	"chat-invite":   "You Have Been Invited To A Chat Room",
+	"confirm-email": "Email Confirmation",
+	"welcome":       "Welcome!",
 }
 
 var v = *validator.New(validator.WithRequiredStructEnabled())
@@ -118,9 +125,8 @@ func (h Handler) Send(c echo.Context) error {
 		location = url
 		return nil
 	})
-	start := time.Now()
+
 	err = h.sender.Send(b, req.Recipient.Email, req.Subject)
-	log.Printf("diff: %s", time.Since(start))
 	if err != nil {
 		h.logger.Warn("send email", "err", err)
 		return c.JSON(500, ApiResponse{
@@ -153,7 +159,32 @@ func (h Handler) Send(c echo.Context) error {
 	}
 
 	return c.JSON(200, ApiResponse{
-		Msg:   id,
-		Error: "",
+		Msg: id,
 	})
+}
+
+func (h Handler) SendBatch(c echo.Context) error {
+	emailType := c.FormValue("email-type")
+	var dataFields map[string]any // how do we get the users name? db look up on email address? or is batch only for static emails?
+
+	b, err := h.templater.Template(c.Request().Context(), emailType, dataFields)
+	if err != nil {
+		h.logger.Warn("send email", "err", err)
+		return c.JSON(500, ApiResponse{
+			Msg:   "Could not parse template",
+			Error: "error parsing template",
+		})
+	}
+
+	go func() {
+		for _, recipient := range frontend.Recipients {
+			err = h.sender.Send(b, recipient, batchEmailSubjects[emailType])
+			if err != nil {
+				h.logger.Warn("send email", "err", err)
+				//mabey trigger a webhook here
+			}
+		}
+	}()
+
+	return root.SendemailForm().Render(c.Request().Context(), c.Response())
 }

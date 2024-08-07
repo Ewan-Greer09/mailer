@@ -4,10 +4,11 @@ import "fmt"
 
 templ Page(emails []string) {
 	<!DOCTYPE html>
-	<html lang="en">
+	<html lang="en" data-theme="black">
 		<head>
 			<meta charset="UTF-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+			<meta name="description" content="send emails to a list of email addresses"/>
 			<title>Home</title>
 			<script src="https://unpkg.com/htmx.org@2.0.1" integrity="sha384-QWGpdj554B4ETpJJC9z+ZHJcA/i59TyjxEPXiiUgN2WmTyV5OEZWCD6gQhgkdpB/" crossorigin="anonymous"></script>
 			<link rel="stylesheet" href="/public/css/output.css"/>
@@ -17,84 +18,111 @@ templ Page(emails []string) {
 			<header class="prose text-center p-10">
 				<h1 class="m-auto">Send Emails</h1>
 			</header>
-			<main class="flex grid-cols-2 gap-1 items-center justify-center">
-				<div class="container grid grid-cols-2 justify-center items-center">
-					<div class="flex justify-center items-center">
+			<main class="items-center justify-center">
+				<section class="grid grid-cols-2 gap-1">
+					<div class="flex col justify-center items-center">
 						@SingleEmailForm()
 					</div>
-					<div class="flex justify-center items-center">
+					<div class="flex col justify-center items-center">
 						@BatchEmailForm()
 					</div>
-				</div>
-				<div id="preview"></div>
+				</section>
+				<section class="flex space-x-5 w-max m-auto">
+					<div class="w-auto flex flex-col justify-center space-y-4 p-4">
+						@EmailList(emails)
+					</div>
+					<div class="w-auto">
+						@SendemailForm()
+					</div>
+				</section>
 			</main>
-			<div>
-				@EmailList(emails)
-			</div>
-			<footer class="text-center">
+			<footer class="text-center p-10 border-secondary border-t-2">
 				Ewan Greer
 			</footer>
 		</body>
 	</html>
 }
 
+templ SendemailForm() {
+	<form hx-post="/api/send/batch">
+		<div class="flex flex-col items-center p-5">
+			@emailSelector()
+			<button class="btn btn-primary btn-lg" type="submit">Send Mail</button>
+		</div>
+	</form>
+}
+
 templ SingleEmailForm() {
-	<div id="single-form" class="prose text-center justify-center">
+	<div id="single-form" class="prose items-center text-center justify-center p-4 rounded-md">
 		<h2>Single Email</h2>
-		<form class="prose flex flex-col m-4 card w-full max-w-xs" id="single-email" hx-post="/recipient" hx-target="#single-form" hx-swap="outerHTML">
-			<input class="input input-bordered m-4" type="email" name="email" id="email-input" placeholder="email"/>
-			<select class="select select-bordered m-4" name="email-type" id="email-type-select" form="single-email">
-				<option class="dropdown-content" value="">none</option>
-				<option class="dropdown-content" value="chat-invite">chat invite</option>
-				<option class="dropdown-content" value="confirm-email">confirm email</option>
-				<option class="dropdown-content" value="welcome">welcome</option>
-			</select>
-			<button class="btn btn-primary m-4" type="submit">Add Email</button>
+		<form
+			class="flex flex-col card w-auto max-w-xs"
+			id="single-email"
+			hx-post="/recipient"
+			hx-target="#email-list-items"
+			hx-swap="beforeend"
+			hx-on::after-request="this.reset()"
+		>
+			<input class="input input-bordered m-2" type="email" name="email" id="email-input" placeholder="email"/>
+			<button class="btn btn-primary m-2" type="submit">Add Email</button>
 		</form>
 	</div>
 }
 
 templ BatchEmailForm() {
-	<div class="prose text-center justify-center">
+	<div class="prose items-center text-center justify-center p-4 rounded-md">
 		<h2>Batch Upload</h2>
-		<form class="flex flex-col m-4 card" id="batch-upload" hx-post="/file-upload">
-			<input type="file" class="file-input file-input-bordered file-input-primary w-full max-w-xs m-4"/>
-			<select class="select select-bordered m-4" name="email-type" id="email-type-select" form="batch-upload">
-				<option class="dropdown-content" value="">none</option>
-				<option class="dropdown-content" value="chat-invite">chat invite</option>
-				<option class="dropdown-content" value="confirm-email">confirm email</option>
-				<option class="dropdown-content" value="welcome">welcome</option>
-			</select>
-			<button class="btn btn-primary m-4" type="submit">Upload CSV</button>
+		<form class="flex flex-col card w-auto max-w-xs" id="batch-upload" hx-post="/file-upload">
+			<input type="file" accept=".csv" class="file-input file-input-bordered file-input-primary max-w-xs m-2"/>
+			<button class="btn btn-primary m-2" type="submit">Upload CSV</button>
 		</form>
 	</div>
 }
 
+templ emailSelector() {
+	<select class="select select-bordered m-4" name="email-type" id="email-type-select" required>
+		<option class="dropdown-content" value="">none</option>
+		<option class="dropdown-content" value="chat-invite">chat invite</option>
+		<option class="dropdown-content" value="confirm-email">confirm email</option>
+		<option class="dropdown-content" value="welcome">welcome</option>
+	</select>
+}
+
 templ Email(e string) {
-	<span class="border border-secondary rounded-md h-fit p-2 m-2">
+	<li class="border border-secondary rounded-md w-fit h-fit p-2 m-2">
 		{ fmt.Sprint(e) }
-		<button type="button" hx-delete={ fmt.Sprintf("/recipient/%s", e) } hx-target="#email-list" hx-swap="outerHTML">
+		<button type="button" hx-delete={ fmt.Sprintf("/recipient/%s", e) } hx-target="closest li" hx-swap="outerHTML">
 			<span class="material-symbols-outlined text-error align-middle">
 				close
 			</span>
 		</button>
-	</span>
+	</li>
 }
 
 templ EmailList(emails []string) {
-	<div class="flex" id="email-list">
-		<div class="flex felx-row">
-			<h1 class="p-4">Recipients</h1>
-			<button type="button" hx-get="/recipient/list" hx-target="#email-list" hx-swap="outerHTML" style="vertical-align: text-bottom;">
-				<span class="material-symbols-outlined">
-					sync
-				</span>
-			</button>
-		</div>
-		<div class="container flex justify-center">
+	<div class="prose flex items-center justify-center align-middle space-x-4" id="email-list">
+		<h3 class="text-lg font-semibold m-0">Recipients</h3>
+		<button
+			type="button"
+			hx-get="/recipient/list"
+			hx-target="#email-list"
+			hx-swap="outerHTML"
+			hx-indicator="#spinner"
+			class="btn btn-outline btn-sm flex items-center"
+		>
+			<span class="material-symbols-outlined">
+				sync
+			</span>
+			<span class="ml-2">
+				<img id="spinner" class="htmx-indicator m-0 w-4 h-4" src="https://htmx.org/img/bars.svg" alt="loading-spinner"/>
+			</span>
+		</button>
+	</div>
+	<div class="container max-w-lg">
+		<ul id="email-list-items" class="flex flex-col space-y-2 list-none">
 			for _, email := range emails {
 				@Email(email)
 			}
-		</div>
+		</ul>
 	</div>
 }
