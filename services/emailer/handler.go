@@ -119,7 +119,7 @@ func (h Handler) Send(c echo.Context) error {
 	wg.Go(func() error {
 		url, s3err := h.uploader.Upload(b, fmt.Sprintf("%s-%s.html", commType, uid))
 		if s3err != nil {
-			h.logger.Warn("send: upload", "err", s3err)
+			h.logger.Error("send: upload", "err", s3err)
 			return err
 		}
 		location = url
@@ -128,7 +128,7 @@ func (h Handler) Send(c echo.Context) error {
 
 	err = h.sender.Send(b, req.Recipient.Email, req.Subject)
 	if err != nil {
-		h.logger.Warn("send email", "err", err)
+		h.logger.Error("send email", "err", err)
 		return c.JSON(500, ApiResponse{
 			Msg:   "Could not send message",
 			Error: "error while sending message",

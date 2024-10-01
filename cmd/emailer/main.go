@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-playground/validator/v10"
 	"github.com/joho/godotenv"
+	// echojwt "github.com/labstack/echo-jwt"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 
@@ -17,14 +18,17 @@ import (
 )
 
 type AppConfig struct {
-	Address     string `json:"ADDRESS" validate:"required"`
+	Address string `json:"ADDRESS" validate:"required"`
+
 	S3AccessKey string `json:"S3_ACCESS_KEY" validate:"required"`
 	S3SecretKey string `json:"S3_SECRET_KEY" validate:"required"`
 	S3ViewURL   string `json:"S3_VIEW_URL" validate:"required"`
 	S3HostURL   string `json:"S3_HOST_URL" validate:"required"`
 
 	JWTSecretKey string `json:"JWT_SECRET_KEY" validate:"required"`
-	MongoURI     string `json:"MONGO_URI" validate:"required"`
+
+	MongoURI      string `json:"MONGO_URI" validate:"required"`
+	MongoPassword string `json:"MONGO_URL"` // todo impl
 
 	SmtpEmail    string `json:"SMTP_EMAIL" validate:"required"`
 	SmtpPassword string `json:"SMTP_PASSWORD" validate:"required"`
@@ -77,7 +81,7 @@ func MountRoutes(e *echo.Echo, h *emailer.Handler, fh *frontend.Handler, cfg App
 
 	fh.Static(e)
 
-	api := e.Group("/api") //echojwt.JWT([]byte(cfg.JWTSecretKey))
+	api := e.Group("/api") // echojwt.JWT([]byte(cfg.JWTSecretKey)))
 	api.POST("/send/:communication_type", h.Send)
 	api.GET("/:communication_uuid", h.Retrieve)
 	api.POST("/send/batch", h.SendBatch)

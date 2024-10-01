@@ -5,7 +5,6 @@ import (
 	"context"
 	"embed"
 	"errors"
-	"github.com/labstack/gommon/log"
 	"html/template"
 )
 
@@ -31,26 +30,16 @@ func NewEmailTemplater() *EmailTemplater {
 }
 
 func (EmailTemplater) Template(ctx context.Context, commType string, dataFields map[string]any) ([]byte, error) {
-	var buf = bytes.NewBuffer(nil)
-
-	tmpl, err := getTemplate(commType)
-	if err != nil {
-		return nil, err
+	tmpl, ok := templates[commType]
+	if !ok {
+		return nil, errors.New("no template found for: " + commType)
 	}
 
-	err = tmpl.Execute(buf, dataFields)
+	var buf bytes.Buffer
+	err := tmpl.Execute(&buf, dataFields)
 	if err != nil {
 		return nil, err
 	}
 
 	return buf.Bytes(), nil
-}
-
-func getTemplate(commType string) (*template.Template, error) {
-	log.Info(commType)
-	tmpl, ok := templates[commType]
-	if !ok {
-		return nil, errors.New("no such template")
-	}
-	return tmpl, nil
 }

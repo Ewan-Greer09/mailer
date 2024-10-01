@@ -1,6 +1,7 @@
 package emailer
 
 import (
+	"fmt"
 	"net/smtp"
 )
 
@@ -20,15 +21,14 @@ func NewEmailService(smtpEmail, smtpPassword string) *EmailService {
 	}
 }
 
-// change
 var host = "smtp.gmail.com"
 var port = "587"
 
-func (es EmailService) Send(content []byte, to string, subject string) error {
-	auth := smtp.PlainAuth("", es.smtpEmail, es.smtpPassword, host)
-	return smtp.SendMail(host+":"+port, auth, es.smtpEmail, []string{to}, getMessageString(es.smtpEmail, to, subject, string(content)))
+func (s EmailService) Send(content []byte, to string, subject string) error {
+	auth := smtp.PlainAuth("", s.smtpEmail, s.smtpPassword, host)
+	return smtp.SendMail(host+":"+port, auth, s.smtpEmail, []string{to}, getMessageString(s.smtpEmail, to, subject, content))
 }
 
-func getMessageString(from, to, subject, body string) []byte {
-	return []byte("From: " + from + "\r\n" + "To: " + to + "\r\n" + "Subject: " + subject + "\r\n" + "MIME-version: 1.0;\nContent-Type: text/html; charset=\"UTF-8\";\n\n" + body + "\r\n")
+func getMessageString(from, to, subject string, body []byte) []byte {
+	return []byte(fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\nMIMI-version: 1.0;\nContent-Type: text/html; charset=\"UTF-8\";\n\n%s\r\n", from, to, subject, body))
 }

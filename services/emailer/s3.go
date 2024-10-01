@@ -14,7 +14,7 @@ import (
 )
 
 type Uploader interface {
-	Upload([]byte, string) (string, error) // string is the url of the uploaded content
+	Upload([]byte, string) (string, error)
 }
 
 type S3Uploader struct {
@@ -22,7 +22,43 @@ type S3Uploader struct {
 	viewURL string
 }
 
-func NewS3Config(endpoint string) (aws.Config, error) {
+func NewS3Uploader(hostURL, viewURL string) *S3Uploader {
+	cfg, err := newS3Config(hostURL)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	client := s3.NewFromConfig(cfg)
+	up := manager.NewUploader(client)
+	log.Println("***** CONNECTED TO MINIO *****")
+	return &S3Uploader{
+		u:       up,
+		viewURL: viewURL,
+	}
+}
+
+func (s S3Uploader) Upload(content []byte, name string) (string, error) {
+	res, err := s.u.Upload(context.Background(), &s3.PutObjectInput{
+		Bucket:      aws.String("mailer-emails"),
+		Key:         aws.String(name),
+		Body:        bytes.NewBuffer(content),
+		ContentType: aws.String("text/html;charset=utf-8"),
+	})
+	if err != nil {
+		return "", err
+	}
+
+	url, err := url.Parse(res.Location)
+	if err != nil {
+		return "", fmt.Errorf("could not parse url: %w", err)
+	}
+
+	url.Host = s.viewURL
+
+	return url.String(), nil
+}
+
+func newS3Config(endpoint string) (aws.Config, error) {
 	var options []func(*config.LoadOptions) error
 
 	// this endpoint is only used in integration tests and local dev
@@ -45,7 +81,8 @@ func NewS3Config(endpoint string) (aws.Config, error) {
 		options = append(options, config.WithCredentialsProvider(aws.CredentialsProviderFunc(func(ctx context.Context) (aws.Credentials, error) {
 			return aws.Credentials{
 				AccessKeyID:     "minio",
-				SecretAccessKey: "miniominio",
+				SecretAccessKey: "miniosecret",
+				SessionToken:    "",
 			}, nil
 		})))
 	}
@@ -56,39 +93,4 @@ func NewS3Config(endpoint string) (aws.Config, error) {
 	}
 
 	return cfg, nil
-}
-
-func NewS3Uploader(hostURL, viewURL string) *S3Uploader {
-	cfg, err := NewS3Config(hostURL)
-	if err != nil {
-		log.Panic(err)
-	}
-
-	client := s3.NewFromConfig(cfg)
-	up := manager.NewUploader(client)
-	return &S3Uploader{
-		u:       up,
-		viewURL: viewURL,
-	}
-}
-
-func (s S3Uploader) Upload(content []byte, name string) (string, error) {
-	res, err := s.u.Upload(context.Background(), &s3.PutObjectInput{
-		Bucket:      aws.String("mailer-emails"),
-		Key:         aws.String(name),
-		Body:        bytes.NewBuffer(content),
-		ContentType: aws.String("text/html;charset=utf-8"),
-	})
-	if err != nil {
-		return "", err
-	}
-
-	u, err := url.Parse(res.Location)
-	if err != nil {
-		return "", fmt.Errorf("could not parse url: %w", err)
-	}
-
-	u.Host = s.viewURL
-
-	return u.String(), nil
 }

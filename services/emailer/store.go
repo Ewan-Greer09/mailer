@@ -2,22 +2,26 @@ package emailer
 
 import (
 	"context"
-	"log"
-
 	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"log"
 )
 
 type Storer interface {
 	SaveEmail(EmailRecord) (string, error)
-	GetEmail(uid string) (EmailRecord, error)
+	GetEmail(string) (EmailRecord, error)
 	Close(context.Context)
 }
 
 type MongoStore struct {
 	client *mongo.Client
+}
+
+type EmailRecord struct {
+	CommType string `bson:"email_type"`
+	ViewURL  string `bson:"view_url"`
 }
 
 func NewMongoStore(uri string) *MongoStore {
@@ -29,17 +33,9 @@ func NewMongoStore(uri string) *MongoStore {
 		log.Fatal(err)
 	}
 
-	log.Printf("connected to db: %s", uri)
-
 	return &MongoStore{
 		client: client,
 	}
-}
-
-type EmailRecord struct {
-	CommType string `bson:"email_type"`
-
-	ViewURL string `bson:"view_url"`
 }
 
 func (ms MongoStore) SaveEmail(doc EmailRecord) (string, error) {
